@@ -1,0 +1,52 @@
+version: '3.9'
+
+services:
+  django:
+    build: ./issue_tracker
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./issue_tracker:/code
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.example
+    depends_on:
+      - db
+      - redis
+  db:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=issue_tracker
+
+  redis:
+    image: redis:7-alpine
+  celery:
+    build: ./issue_tracker
+    command: python -m celery -A issue_tracker worker -l info
+    env_file:
+      - .env.example
+    depends_on:
+      - django
+      - redis
+  celery-beat:
+    build: ./issue_tracker
+    command: celery -A issue_tracker beat -l info
+    env_file:
+      - .env.example
+    depends_on:
+      - django
+      - redis
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: always
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+volumes:
+  postgres_data:
